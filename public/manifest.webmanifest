@@ -1,0 +1,10 @@
+{
+  "name": "AstroCare Core",
+  "short_name": "AstroCare",
+  "description": "Offline-first crew health monitoring with a 3D digital twin",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050B18",
+  "theme_color": "#050B18",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

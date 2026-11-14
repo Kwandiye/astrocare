@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0B1220;
+  --card: #141E2D;
+  --raised: #1B2738;
+  --line: rgba(148, 163, 184, 0.12);
+  --ink: #F5F7FA;
+  --muted: #94A3B8;
+  color-scheme: dark;
+}
+
+html, body { background: var(--bg); color: #CBD5E1; }
+
+/* Card surface. Kept under the old name so every existing component picks it up. */
+.glass, .card {
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+/* Small uppercase section label */
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+/* Numbers: Inter with tabular figures, so values don't jump while updating */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'cv11' 1; }
+.mono { font-family: var(--font-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+.scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.25); border-radius: 3px; }
+
+/* One attention flash when entering CRITICAL — no infinite blinking. */
+@keyframes red-attention {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  30% { box-shadow: 0 0 0 4px rgba(239,68,68,0.45); }
+}
+.pulse-once { animation: red-attention 1.2s ease-out 2; }
+
+/* Glossary tooltip trigger */
+.term { text-decoration: underline dotted rgba(148,163,184,0.6); text-underline-offset: 3px; cursor: help; }
+
+:focus-visible { outline: 2px solid #38BDF8; outline-offset: 2px; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
