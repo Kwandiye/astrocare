@@ -24,6 +24,9 @@ export function TrainingView({ d }: { d: ReturnType<typeof useDashboard> }) {
   const plan = coach.find((x) => x.steps);
   const activity = useMemo(() => metricSeries(d.astronaut, mission, d.log.missionDay, 'exerciseMinutes', '30d'), [d.astronaut, mission, d.log.missionDay]);
   const scores = d.scores.filter((s) => ['recovery', 'strain', 'eva', 'bone'].includes(s.id));
+  const brainPlan = d.tick?.plans?.exercise;
+  const nutrition = d.tick?.plans?.nutrition;
+  const trajectory = d.tick?.bodyTrajectory;
 
   return (
     <div className="space-y-4">
@@ -51,7 +54,18 @@ export function TrainingView({ d }: { d: ReturnType<typeof useDashboard> }) {
             <h2 className="flex items-center gap-2 text-base font-semibold text-ink"><Dumbbell size={18} className="text-info" />Today&apos;s plan</h2>
             <button onClick={() => set({ view: 'assistant', aiRole: 'fitness' })} className="flex items-center gap-1 text-sm text-info hover:underline">Ask the Fitness Coach <ArrowRight size={14} /></button>
           </header>
-          <p className="mt-2 text-sm text-slate-300">{coach[0]?.text}</p>
+          {brainPlan ? (
+            <div className="mt-2 rounded-xl bg-raised/60 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold capitalize text-ink">Brain plan: {brainPlan.status}</span>
+                {brainPlan.targetMinutes != null && <span className="num text-xs text-muted">target {brainPlan.targetMinutes} min</span>}
+              </div>
+              {brainPlan.reason && <p className="mt-1 text-sm text-slate-300">{brainPlan.reason}</p>}
+              {brainPlan.sessions && <ol className="mt-2 space-y-1 text-sm text-slate-200">
+                {brainPlan.sessions.map((session, index) => <li key={index} className="flex gap-2"><span className="num text-muted">{index + 1}.</span><span>{session.type} · {session.minutes} min — {session.note}</span></li>)}
+              </ol>}
+            </div>
+          ) : <p className="mt-2 text-sm text-slate-300">{coach[0]?.text}</p>}
           {plan && (
             <>
               <p className="mt-3 text-sm font-medium" style={{ color: plan.priority ? STATUS_META[plan.priority].color : '#F5F7FA' }}>{plan.text}</p>
@@ -88,6 +102,33 @@ export function TrainingView({ d }: { d: ReturnType<typeof useDashboard> }) {
           <div className="mt-1"><TrendChart series={activity} bars height={150} /></div>
         </section>
       </div>
+
+      {nutrition && (
+        <section className="card rounded-card p-5">
+          <h2 className="text-base font-semibold text-ink">Nutrition plan · {nutrition.status}</h2>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-300">
+            {nutrition.targetKcal != null && <span className="num">Target {nutrition.targetKcal} kcal</span>}
+            {nutrition.hydration && <span>{nutrition.hydration}</span>}
+          </div>
+        </section>
+      )}
+
+      {trajectory && (
+        <section className="card rounded-card p-5" aria-label="Expected body trajectory">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-base font-semibold text-ink">Expected change by mission day {trajectory.missionDay}</h2>
+            <span className="text-xs text-muted">population model · {trajectory.adherenceSource ?? 'assumed'} adherence</span>
+          </div>
+          <p className="mt-1 text-xs text-warn">{trajectory.disclaimer}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {trajectory.parameters.map((parameter) => <div key={parameter.code} className="rounded-xl bg-raised/60 p-3">
+              <div className="text-xs text-muted">{parameter.label}</div>
+              <div className="num mt-1 text-lg font-semibold text-ink">{parameter.expected.toFixed(2)} {parameter.unit}</div>
+              <div className="text-xs text-slate-400">range {parameter.lower.toFixed(2)} to {parameter.upper.toFixed(2)} · {parameter.status}</div>
+            </div>)}
+          </div>
+        </section>
+      )}
 
       <div>
         <RoutineView />

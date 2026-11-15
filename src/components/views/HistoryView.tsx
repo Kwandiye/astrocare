@@ -1,5 +1,5 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ScrollText, Send, Users, ArrowRight } from 'lucide-react';
 import { useHealthStore } from '@/store/useHealthStore';
 import { triage } from '@/lib/triageEngine';
@@ -8,6 +8,7 @@ import { MISSION_DAYS } from '@/data/astronauts';
 import { useMission } from '@/hooks/useMission';
 import type { MissionEventType, TriageStatus } from '@/types/health';
 import type { useDashboard } from '@/hooks/useDashboard';
+import { getReport, type MissionReport } from '@/lib/brainHttp';
 
 const EVENT: Record<MissionEventType, string> = {
   eva: 'Spacewalk (EVA)', spe: 'Solar particle event', cdra_failure: 'CO₂ scrubber failure', circadian_shift: 'Sleep shift (slam shift)',
@@ -21,6 +22,13 @@ export function HistoryView({ d }: { d: ReturnType<typeof useDashboard> }) {
   const escalations = useHealthStore((s) => s.escalations);
   const set = useHealthStore((s) => s.set);
   const mission = useMission(d);
+  const [brainReport, setBrainReport] = useState<MissionReport | null>(null);
+  const live = d.tick?.doctorSource || d.tick?.bodySystems;
+
+  useEffect(() => {
+    if (!live || !d.tick?.astronautId) return;
+    getReport(d.tick.astronautId).then(setBrainReport).catch(() => setBrainReport(null));
+  }, [live, d.tick?.astronautId]);
 
   const days = useMemo(() => mission.map((l, i) => ({ log: l, status: triage(d.astronaut, l, mission.slice(Math.max(0, i - 7), i)).overall as TriageStatus })), [mission, d.astronaut]);
   const counts = days.slice(0, day + 1).reduce((a, x) => ({ ...a, [x.status]: (a[x.status] ?? 0) + 1 }), {} as Record<string, number>);
@@ -58,6 +66,19 @@ export function HistoryView({ d }: { d: ReturnType<typeof useDashboard> }) {
         </div>
         <div className="num mt-1.5 flex justify-between text-xs text-muted"><span>Day 0</span><span>Day 90</span><span>Day {MISSION_DAYS}</span></div>
       </section>
+
+      {brainReport && (
+        <section className="card rounded-card p-5" aria-label="Brain mission report">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-ink">Brain mission report</h2>
+            <span className="text-xs text-muted">EMCL/IMM vocabulary</span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {(['green', 'yellow', 'red'] as const).map((level) => <div key={level} className="rounded-xl bg-raised/60 p-3"><div className="text-xs capitalize text-muted">{level}</div><div className="num mt-1 text-xl text-ink">{Math.round(brainReport.timeByLevel[level] / 60)} min</div></div>)}
+          </div>
+          {brainReport.conditionsSeen.length > 0 && <div className="mt-3 text-sm text-slate-300">Conditions seen: {brainReport.conditionsSeen.map((condition) => `${condition.code} (${condition.episodes})`).join(' · ')}</div>}
+        </section>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <section className="card rounded-card p-5">

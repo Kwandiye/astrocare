@@ -4,6 +4,7 @@ import { Sparkles, Send, ShieldCheck, AlertTriangle, OctagonX, MapPin, Wind, X }
 import { useHealthStore, type AiRole, type ChatMsg } from '@/store/useHealthStore';
 import { briefing, answer, QUICK, ROLE_META, type AiOut } from '@/lib/astroAI';
 import { useAiCtx } from '@/hooks/useAiCtx';
+import { postAsk } from '@/lib/brainHttp';
 import { STATUS_META } from '@/lib/status';
 import { ROLE_ICON } from '@/components/overview/NextActions';
 import type { useDashboard } from '@/hooks/useDashboard';
@@ -71,6 +72,7 @@ export function AssistantView({ d }: { d: ReturnType<typeof useDashboard> }) {
   const ctx = useAiCtx(d);
   const [input, setInput] = useState('');
   const [breathing, setBreathing] = useState(false);
+  const [asking, setAsking] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const ctxKey = `${d.astronaut.id}:${d.log.missionDay}:${d.env.id}`;
   const keyRef = useRef(ctxKey);
@@ -88,9 +90,28 @@ export function AssistantView({ d }: { d: ReturnType<typeof useDashboard> }) {
   }, [role, chat.length === 0, ctxKey]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat.length, role]);
 
-  const ask = (q: string) => {
+  const ask = async (q: string) => {
     const text = q.trim();
     if (!text) return;
+    const liveDoctor = role === 'doctor' && d.tick?.doctorSource && d.tick.astronautId;
+    if (liveDoctor) {
+      const user: Msg = { id: nextId++, from: 'user', role, text, at: Date.now() };
+      set({ chat: [...useHealthStore.getState().chat, user] });
+      setInput('');
+      setAsking(true);
+      try {
+        const response = await postAsk(d.tick!.astronautId!, text);
+        const source = response.source === 'llm' ? 'Brain · LLM' : 'Brain · fallback';
+        const answerMsg: Msg = { id: nextId++, from: 'ai', role: 'doctor', text: `${source}: ${response.answer}`, at: Date.now() };
+        set({ chat: [...useHealthStore.getState().chat, answerMsg] });
+      } catch {
+        const res = answer(text, role, ctx);
+        set({ chat: [...useHealthStore.getState().chat, ...toMsgs(res.role, res.out)] });
+      } finally {
+        setAsking(false);
+      }
+      return;
+    }
     const res = answer(text, role, ctx);
     const user: Msg = { id: nextId++, from: 'user', role: res.role, text, at: Date.now() };
     set({ chat: [...useHealthStore.getState().chat, user, ...toMsgs(res.role, res.out)], aiRole: res.role });
@@ -99,6 +120,7 @@ export function AssistantView({ d }: { d: ReturnType<typeof useDashboard> }) {
   };
 
   const priorities = useMemo(() => ROLES.map((r) => ({ r, top: briefing(r, ctx).find((x) => x.priority) })), [ctx]);
+  const brainConditions = d.tick?.likelyConditions ?? [];
   const thread = chat.filter((m) => m.role === role);
 
   return (
@@ -131,6 +153,22 @@ export function AssistantView({ d }: { d: ReturnType<typeof useDashboard> }) {
             })}
           </nav>
         </div>
+
+        {role === 'doctor' && d.tick && (
+          <div className="card rounded-card p-4">
+            <h2 className="text-sm font-semibold text-ink">Brain assessment</h2>
+            <p className="mt-1 text-xs text-muted">Evidence score, not a probability. Never a diagnosis.</p>
+            {brainConditions.length === 0 ? <p className="mt-3 text-sm text-ok">No condition candidates from the brain.</p> : (
+              <ul className="mt-3 space-y-3">
+                {brainConditions.map((condition) => <li key={condition.code} className="rounded-xl bg-raised/60 p-2.5">
+                  <div className="flex items-center justify-between gap-2 text-sm font-medium text-slate-200"><span>{condition.label}</span><span className="num text-xs text-warn">{Math.round(condition.confidence * 100)}%</span></div>
+                  <div className="mt-1 text-xs text-muted">Drivers: {condition.drivers.join(', ')}</div>
+                  {condition.resources && condition.resources.length > 0 && <div className="mt-2 text-xs text-slate-300">{condition.resources.map((resource) => `${resource.name} (${resource.onboard === null ? 'unknown' : resource.onboard ? 'onboard' : 'missing'})`).join(' · ')}</div>}
+                </li>)}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="card rounded-card p-4">
           <h2 className="text-sm font-semibold text-ink">Priority alerts</h2>
@@ -174,10 +212,10 @@ export function AssistantView({ d }: { d: ReturnType<typeof useDashboard> }) {
                 className="rounded-full bg-raised px-3 py-1.5 text-xs text-slate-200 hover:bg-[#22324a]">{q}</button>
             ))}
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); ask(input); }} className="flex items-center gap-2">
+          <form onSubmit={(e) => { e.preventDefault(); void ask(input); }} className="flex items-center gap-2">
             <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={`Ask ${ROLE_META[role].name} — e.g. "Why is my heart rate up?"`}
               className="flex-1 rounded-xl bg-raised px-4 py-3 text-[15px] text-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-info/60" aria-label="Your question" />
-            <button type="submit" disabled={!input.trim()} className="flex h-11 w-11 items-center justify-center rounded-xl bg-info text-canvas disabled:opacity-40" aria-label="Send"><Send size={18} /></button>
+            <button type="submit" disabled={!input.trim() || asking} className="flex h-11 w-11 items-center justify-center rounded-xl bg-info text-canvas disabled:opacity-40" aria-label="Send"><Send size={18} /></button>
           </form>
         </div>
       </section>

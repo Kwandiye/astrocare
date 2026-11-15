@@ -151,16 +151,20 @@ export const useHealthStore = create<HealthState>()(
       },
       pushTick: (t) => {
         const s = get();
-        const ticks = s.ticks.length >= RING_SIZE ? [...s.ticks.slice(s.ticks.length - RING_SIZE + 1), t] : [...s.ticks, t];
+        const normalized = {
+          ...t,
+          astronautId: t.astronautId?.replace(/^ASTRO-/i, 'astro-').toLowerCase(),
+        };
+        const ticks = s.ticks.length >= RING_SIZE ? [...s.ticks.slice(s.ticks.length - RING_SIZE + 1), normalized] : [...s.ticks, normalized];
         const now = Date.now();
-        const patch: Partial<HealthState> = { ticks, lastTickAt: now };
-        if (t.alertLevel !== s.level) {
+        const patch: Partial<HealthState> = { ticks, lastTickAt: now, mode: 'live' };
+        if (normalized.alertLevel !== s.level) {
           patch.prevLevel = s.level;
-          patch.level = t.alertLevel;
+          patch.level = normalized.alertLevel;
           patch.levelSince = now;
-          if (t.alertLevel === 'red' && s.level !== null) patch.redBannerAt = now;
+          if (normalized.alertLevel === 'red' && s.level !== null) patch.redBannerAt = now;
           if (s.level !== null) {
-            patch.audit = [{ at: now, text: `Alert level ${s.level.toUpperCase()} → ${t.alertLevel.toUpperCase()}` }, ...s.audit].slice(0, 200);
+            patch.audit = [{ at: now, text: `Alert level ${s.level.toUpperCase()} → ${normalized.alertLevel.toUpperCase()}` }, ...s.audit].slice(0, 200);
           }
         }
         set(patch);
