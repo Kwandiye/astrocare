@@ -42,12 +42,14 @@ export function ActiveFlags({ tick, ticks, stale, max = 4 }: { tick: BrainTick |
           const a = acks[key];
           const snoozed = a?.snoozeUntil && a.snoozeUntil > now;
           const zone = zoneForFlag(f);
+          const detail = tick?.flagDetails?.find((candidate) => candidate.message === f.reason);
           return (
             <li key={id} className="rounded-xl bg-raised/60 p-3" style={{ opacity: snoozed ? 0.55 : 1, boxShadow: `inset 3px 0 0 ${color}` }}>
               <div className="flex items-start gap-2.5">
                 <Icon size={18} color={color} className="mt-0.5 shrink-0" aria-hidden />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-snug text-ink">{f.reason}</p>
+                  {detail?.evidenceRef && <p className="mt-1 text-[11px] text-muted">Evidence: {detail.evidenceRef}</p>}
                   <div className="mt-0.5 text-xs text-muted">
                     <span style={{ color }}>{crit ? 'Critical' : 'Warning'}</span> · {kind === 'sustained' ? 'ongoing' : 'brief spike'}
                     {f.deviationPct != null && <> · {f.deviationPct > 0 ? '+' : ''}{f.deviationPct}% vs your baseline</>}

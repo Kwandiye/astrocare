@@ -43,13 +43,18 @@ export function useDashboard() {
   const result = useMemo(() => triage(astronaut, log, history), [astronaut, log, history]);
   const scores = useMemo(() => allScores(astronaut, log, result), [astronaut, log, result]);
 
-  const tick = ticks[ticks.length - 1] ?? null;
+  const tick = [...ticks].reverse().find((t) => !t.astronautId || t.astronautId === astronautId) ?? null;
   const fresh = freshnessOf(lastTickAt, now);
 
   const zoneStatus = useMemo(() => {
     const out = {} as Record<ZoneId, TriageStatus>;
     for (const z of ZONE_IDS) out[z] = result.zones[z].status;
-    if (tick && fresh.state !== 'lost') {
+    if (tick?.bodySystems && fresh.state !== 'lost') {
+      for (const z of ZONE_IDS) {
+        const status = tick.bodySystems[z];
+        if (status) out[z] = status;
+      }
+    } else if (tick && fresh.state !== 'lost') {
       for (const f of tick.activeFlags) {
         const z = zoneForFlag(f);
         out[z] = worst(out[z], f.severity === 'critical' ? 'red' : 'yellow');
